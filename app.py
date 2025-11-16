@@ -1,27 +1,28 @@
 import streamlit as st
-from google import generativeai as genai # <--- ИСПРАВЛЕНО! Теперь это правильный импорт
+# Импортируем generativeai и даем ему псевдоним genai
+from google import generativeai as genai 
 import os
 
 # --- 🛑 Извлекаем ключ из Streamlit Secrets (Безопасный метод) 🛑 ---
-# Ключ должен быть установлен в панели 'Secrets' на Streamlit Cloud
 try:
-    # Имя ключа должно совпадать с тем, что вы установите в Streamlit Secrets
+    # Ключ должен быть установлен в панели 'Secrets' на Streamlit Cloud
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"] 
 except KeyError:
-    # Если ключ не найден, показываем ошибку
     st.error("⚠ API ключ GEMINI_API_KEY не найден в Streamlit Secrets. Пожалуйста, добавьте его!")
     st.stop() 
 
 # --- Инициализация Gemini ---
 try:
+    # 1. Настраиваем API ключ
     genai.configure(api_key=GEMINI_API_KEY)
-    client = genai.Client()
+    
+    # 2. **УДАЛЕН** вызов genai.Client() - он больше не нужен
+    
 except Exception as e:
-    # Теперь эта ошибка сработает только если ключ недействителен
     st.error(f"Ошибка инициализации Gemini. Проверьте ваш API ключ! (Детали: {e})")
     st.stop() 
 
-# --- Настройки Streamlit (с логотипом) ---
+# --- Настройки Streamlit ---
 LOGO_FILENAME = "logonpg.png" 
 
 st.set_page_config(
@@ -54,6 +55,7 @@ if prompt := st.chat_input("Ваш вопрос:"):
         st.markdown(prompt)
 
     # Формируем историю для Gemini
+    # Теперь мы используем genai.chats.create() напрямую, без объекта client.
     history = [
         {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
         for m in st.session_state["messages"] if m["role"] != "system"
@@ -65,8 +67,8 @@ if prompt := st.chat_input("Ваш вопрос:"):
     with st.chat_message("assistant"):
         with st.spinner('Gemini думает...'):
             try:
-                # Используем чаты для поддержки контекста (истории)
-                response = client.chats.create(
+                # Используем genai.chats.create()
+                response = genai.chats.create( # <--- ИСПРАВЛЕННЫЙ ВЫЗОВ
                     model='gemini-2.5-flash',
                     messages=history,
                     system_instruction=system_prompt
