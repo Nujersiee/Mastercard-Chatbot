@@ -1,23 +1,32 @@
 import streamlit as st
-import ollama
+from google import genai
 
-# --- ВАЖНО: Имя файла логотипа ---
-# Используем точное имя файла, которое вы указали: logonpg.png
+# --- 🛑 ВАШ GEMINI API КЛЮЧ 🛑 ---
+# Ключ, который вы только что предоставили
+GEMINI_API_KEY = "AIzaSyDsytyHtW_xPl6MPxsa6WzkQsZCrw7mtr4" 
+# ------------------------------------------------------------
+
+# Инициализация Gemini
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    client = genai.Client()
+except Exception as e:
+    st.error("Ошибка инициализации Gemini. Проверьте ваш API ключ!")
+
+# --- Настройки Streamlit (с логотипом) ---
 LOGO_FILENAME = "logonpg.png" 
 
-# --- Настройки Streamlit (с логотипом и иконкой страницы) ---
 st.set_page_config(
     page_title="Чат-бот Mastercard",
     layout="wide",
     page_icon=LOGO_FILENAME 
 )
 
-st.image(LOGO_FILENAME, width=100) # Отображаем логотип
-st.title("Чат-бот Mastercard на Llama 3")
+st.image(LOGO_FILENAME, width=100) 
+st.title("Чат-бот Mastercard на Gemini")
 
-# Инициализация истории чата (если ее нет)
+# Инициализация истории чата
 if "messages" not in st.session_state:
-    # Финальный Системный промпт: определяет роль AI, включает автоматический язык и дизайн
     st.session_state["messages"] = [
         {"role": "system", "content": "Ты - высококвалифицированный финансовый консультант и эксперт по платежным системам Mastercard. Твоя основная задача — давать точные, полезные и вежливые ответы на вопросы о продуктах и услугах компании Mastercard. Анализируй язык каждого входящего запроса. Ответ должен быть строго на том языке, на котором задан вопрос. Отвечай только по теме финансов и платежей, связанных с Mastercard. ВСЕГДА будь дружелюбным и гостеприимным."},
         {"role": "assistant", "content": "👋 Привет! Я ваш персональный финансовый помощник от Mastercard. Спрашивайте о картах, платежах и услугах – я здесь, чтобы помочь!"}
@@ -25,38 +34,38 @@ if "messages" not in st.session_state:
 
 # Отображение предыдущих сообщений
 for message in st.session_state["messages"]:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] != "system":
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 # --- Логика обработки запроса ---
 if prompt := st.chat_input("Ваш вопрос:"):
-    # 1. Добавляем сообщение пользователя в историю
     st.session_state["messages"].append({"role": "user", "content": prompt})
     
-    # Отображаем запрос пользователя
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Формируем историю для Ollama (включая системный промпт)
+    # Формируем историю для Gemini
     history = [
-        {"role": m["role"], "content": m["content"]}
-        for m in st.session_state["messages"]
+        {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
+        for m in st.session_state["messages"] if m["role"] != "system"
     ]
-
-    # 3. Получаем ответ от Ollama
+    
+    # Добавляем системный промпт как первый элемент истории
+    system_prompt = st.session_state["messages"][0]["content"]
+    
     with st.chat_message("assistant"):
-        with st.spinner('Llama 3 думает...'):
+        with st.spinner('Gemini думает...'):
             try:
-                # Отправляем всю историю Ollama, чтобы модель помнила контекст
-                response = ollama.chat(
-                    model='llama3',
-                    messages=history
+                response = client.chats.create(
+                    model='gemini-2.5-flash',
+                    messages=history,
+                    system_instruction=system_prompt
                 )
-                ai_response = response['message']['content']
+                ai_response = response.text
                 st.markdown(ai_response)
             except Exception as e:
-                ai_response = f"Ошибка: Не могу подключиться к Ollama. Убедитесь, что 'ollama run llama3' запущен в отдельном окне CMD."
+                ai_response = f"Ошибка: Не могу получить ответ от Gemini. Возможно, ключ неверный, или лимит исчерпан."
                 st.markdown(ai_response)
 
-    # 4. Добавляем ответ AI в историю
     st.session_state["messages"].append({"role": "assistant", "content": ai_response})
