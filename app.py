@@ -16,7 +16,7 @@ try:
     # 1. Настраиваем API ключ
     genai.configure(api_key=GEMINI_API_KEY)
     
-    # 2. **УДАЛЕН** вызов genai.Client() - он больше не нужен
+    # 2. **УДАЛЕН** вызов genai.Client()
     
 except Exception as e:
     st.error(f"Ошибка инициализации Gemini. Проверьте ваш API ключ! (Детали: {e})")
@@ -55,7 +55,6 @@ if prompt := st.chat_input("Ваш вопрос:"):
         st.markdown(prompt)
 
     # Формируем историю для Gemini
-    # Теперь мы используем genai.chats.create() напрямую, без объекта client.
     history = [
         {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
         for m in st.session_state["messages"] if m["role"] != "system"
@@ -67,8 +66,8 @@ if prompt := st.chat_input("Ваш вопрос:"):
     with st.chat_message("assistant"):
         with st.spinner('Gemini думает...'):
             try:
-                # Используем genai.chats.create()
-                response = genai.chats.create( # <--- ИСПРАВЛЕННЫЙ ВЫЗОВ
+                # *** ЭТА СТРОКА ИСПРАВЛЕНА: genai.chats.create() ***
+                response = genai.chats.create( 
                     model='gemini-2.5-flash',
                     messages=history,
                     system_instruction=system_prompt
