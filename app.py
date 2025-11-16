@@ -1,5 +1,4 @@
 import streamlit as st
-# Импортируем generativeai и даем ему псевдоним genai
 from google import generativeai as genai 
 import os
 
@@ -13,11 +12,9 @@ except KeyError:
 
 # --- Инициализация Gemini ---
 try:
-    # 1. Настраиваем API ключ
     genai.configure(api_key=GEMINI_API_KEY)
-    
-    # 2. **УДАЛЕН** вызов genai.Client()
-    
+    # Удалены genai.Client() и другие ненужные вызовы.
+    # Конфигурация прошла успешно.
 except Exception as e:
     st.error(f"Ошибка инициализации Gemini. Проверьте ваш API ключ! (Детали: {e})")
     st.stop() 
@@ -55,7 +52,11 @@ if prompt := st.chat_input("Ваш вопрос:"):
         st.markdown(prompt)
 
     # Формируем историю для Gemini
-    history = [
+    # *Теперь мы используем genai.generate_content с историей,
+    # что является правильным способом для этой версии библиотеки*
+    
+    # 1. Извлекаем историю сообщений (исключая системный промпт)
+    contents = [
         {"role": "user" if m["role"] == "user" else "model", "parts": [m["content"]]}
         for m in st.session_state["messages"] if m["role"] != "system"
     ]
@@ -66,11 +67,11 @@ if prompt := st.chat_input("Ваш вопрос:"):
     with st.chat_message("assistant"):
         with st.spinner('Gemini думает...'):
             try:
-                # *** ЭТА СТРОКА ИСПРАВЛЕНА: genai.chats.create() ***
-                response = genai.chats.create( 
+                # *** ИСПРАВЛЕННЫЙ ВЫЗОВ: используем genai.generate_content ***
+                response = genai.generate_content(
                     model='gemini-2.5-flash',
-                    messages=history,
-                    system_instruction=system_prompt
+                    contents=contents, # Используем contents вместо messages
+                    config={"system_instruction": system_prompt} # Используем config для системной инструкции
                 )
                 ai_response = response.text
                 st.markdown(ai_response)
